@@ -19,29 +19,114 @@ class UIManager:
         self.stop_api_button = self.window.stop_api
 
         # Alapértelmezett értékek beállítása
-        self.camera_display.setText("")
+        self.camera_display.setText("Kamera nem aktív")
         self.recognized_number_people.setText("0")
 
         self.camera_manager = CameraManager()
+
+        self.is_camera_running = False
+
+        self.update_button_states()
 
         # Eseménykezelők beállítása
         self.setup_event_handlers()
 
     # Eseménykezelők beállítása
     def setup_event_handlers(self):
-        # Egyelőre csak placeholder funkciók
         self.start_api_button.clicked.connect(self.on_start_api_clicked)
         self.stop_api_button.clicked.connect(self.on_stop_api_clicked)
 
     # API indítása gomb eseménykezelője
     def on_start_api_clicked(self):
-        print("Start API gomb megnyomva")
-        # Itt később meghívhatod a tényleges API indító funkciót
+        if not self.is_camera_running:
+            # Kamera indítása
+            success = self.camera_manager.start(
+                frame_update_callback=self.update_camera_display, error_callback=self.handle_camera_error
+            )
+
+            if success:
+                self.is_camera_running = True
+                print("Kamera sikeresen elindítva")
+
+                # Status bar frissítése (ha van)
+                if hasattr(self.window, "statusBar"):
+                    self.window.statusBar().showMessage("Kamera aktív - Felismerés folyamatban...")
+
+                # Gomb állapotok frissítése
+                self.update_button_states()
+
+                # Emberek számának nullázása új session kezdetekor
+                self.update_people_count(0)
+            else:
+                print("Hiba: A kamera nem indítható el")
+                self.handle_camera_error("A kamera nem indítható el")
+        else:
+            print("A kamera már fut")
 
     # API leállítása gomb eseménykezelője
     def on_stop_api_clicked(self):
         print("Stop API gomb megnyomva")
-        # Itt később meghívhatod a tényleges API leállító funkciót
+
+        if self.is_camera_running:
+            # Kamera leállítása
+            success = self.camera_manager.stop()
+
+            if success:
+                self.is_camera_running = False
+                print("Kamera sikeresen leállítva")
+
+                # Kamera display tisztítása
+                self.camera_display.clear()
+                self.camera_display.setText("Kamera leállítva")
+
+                # Status bar frissítése
+                if hasattr(self.window, "statusBar"):
+                    self.window.statusBar().showMessage("Kamera leállítva")
+
+                # Gomb állapotok frissítése
+                self.update_button_states()
+
+                # Emberek számának nullázása
+                self.update_people_count(0)
+            else:
+                print("Hiba: A kamera nem állítható le")
+
+                # Status bar frissítése hiba esetén
+                if hasattr(self.window, "statusBar"):
+                    self.window.statusBar().showMessage("Hiba: A kamera nem állítható le", 3000)
+        else:
+            print("A kamera már le van állítva")
+
+    def handle_camera_error(self, error_message):
+        """Kamera hibák kezelése"""
+        print(f"Kamera hiba: {error_message}")
+
+        # UI visszaállítása hiba esetén
+        self.is_camera_running = False
+        self.camera_display.clear()
+        self.camera_display.setText(f"Kamera hiba:\n{error_message}")
+
+        # Status bar frissítése
+        if hasattr(self.window, "statusBar"):
+            self.window.statusBar().showMessage(f"Kamera hiba: {error_message}", 5000)
+
+        # Gomb állapotok frissítése
+        self.update_button_states()
+
+    def update_button_states(self):
+        # Gomb állapotok frissítése a kamera állapota alapján
+        if self.is_camera_running:
+            # Kamera fut: Start gomb letiltása, Stop gomb engedélyezése
+            self.start_api_button.setEnabled(False)
+            self.start_api_button.setText("Futó...")
+            self.stop_api_button.setEnabled(True)
+            self.stop_api_button.setText("Stop API")
+        else:
+            # Kamera nem fut: Start gomb engedélyezése, Stop gomb letiltása
+            self.start_api_button.setEnabled(True)
+            self.start_api_button.setText("Start API")
+            self.stop_api_button.setEnabled(False)
+            self.stop_api_button.setText("Leállítva")
 
     # Kamera képének frissítése
     def update_camera_display(self, image):
